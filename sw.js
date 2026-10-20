@@ -1,63 +1,52 @@
-// Offline cache: app shell + plan photos precached; catalog photos cached on first view.
-const CACHE_VERSION = 'treino-v2';
+// App shell: network-first so every deploy shows up immediately, cache as offline fallback.
+// Photos: cache-first in a separate cache that app updates never wipe.
+const SHELL_CACHE = 'treino-shell-v3';
+const IMAGE_CACHE = 'treino-images-v1';
 const APP_SHELL = [
   "./",
   "./index.html",
+  "./css/app.css",
   "./catalog.json",
-  "./img/Barbell_Bench_Press_-_Medium_Grip_0.jpg",
-  "./img/Barbell_Bench_Press_-_Medium_Grip_1.jpg",
-  "./img/Barbell_Curl_0.jpg",
-  "./img/Barbell_Curl_1.jpg",
-  "./img/Barbell_Deadlift_0.jpg",
-  "./img/Barbell_Deadlift_1.jpg",
-  "./img/Barbell_Full_Squat_0.jpg",
-  "./img/Barbell_Full_Squat_1.jpg",
-  "./img/Bent_Over_Barbell_Row_0.jpg",
-  "./img/Bent_Over_Barbell_Row_1.jpg",
-  "./img/Cable_Crossover_0.jpg",
-  "./img/Cable_Crossover_1.jpg",
-  "./img/Dips_-_Chest_Version_0.jpg",
-  "./img/Dips_-_Chest_Version_1.jpg",
-  "./img/Dumbbell_Shoulder_Press_0.jpg",
-  "./img/Dumbbell_Shoulder_Press_1.jpg",
-  "./img/Hammer_Curls_0.jpg",
-  "./img/Hammer_Curls_1.jpg",
-  "./img/Incline_Dumbbell_Press_0.jpg",
-  "./img/Incline_Dumbbell_Press_1.jpg",
-  "./img/Leg_Press_0.jpg",
-  "./img/Leg_Press_1.jpg",
-  "./img/Lying_Leg_Curls_0.jpg",
-  "./img/Lying_Leg_Curls_1.jpg",
-  "./img/One-Arm_Dumbbell_Row_0.jpg",
-  "./img/One-Arm_Dumbbell_Row_1.jpg",
-  "./img/Plank_0.jpg",
-  "./img/Plank_1.jpg",
-  "./img/Pullups_0.jpg",
-  "./img/Pullups_1.jpg",
-  "./img/Romanian_Deadlift_0.jpg",
-  "./img/Romanian_Deadlift_1.jpg",
-  "./img/Seated_Triceps_Press_0.jpg",
-  "./img/Seated_Triceps_Press_1.jpg",
-  "./img/Side_Lateral_Raise_0.jpg",
-  "./img/Side_Lateral_Raise_1.jpg",
-  "./img/Standing_Calf_Raises_0.jpg",
-  "./img/Standing_Calf_Raises_1.jpg",
-  "./img/Stiff-Legged_Dumbbell_Deadlift_0.jpg",
-  "./img/Stiff-Legged_Dumbbell_Deadlift_1.jpg",
-  "./img/Straight-Arm_Pulldown_0.jpg",
-  "./img/Straight-Arm_Pulldown_1.jpg",
-  "./img/Triceps_Pushdown_-_Rope_Attachment_0.jpg",
-  "./img/Triceps_Pushdown_-_Rope_Attachment_1.jpg"
+  "./icon.png",
+  "./js/config/exercises.js",
+  "./js/config/programs.js",
+  "./js/core/catalog.js",
+  "./js/core/exercises.js",
+  "./js/core/format.js",
+  "./js/core/history.js",
+  "./js/core/image-cache.js",
+  "./js/core/photos.js",
+  "./js/core/progression.js",
+  "./js/core/store.js",
+  "./js/main.js",
+  "./js/ui/chart.js",
+  "./js/ui/dom.js",
+  "./js/ui/fragments.js",
+  "./js/ui/media.js",
+  "./js/ui/plan-fields.js",
+  "./js/ui/rest-timer.js",
+  "./js/ui/state.js",
+  "./js/ui/wake-lock.js",
+  "./js/views/body-weight.js",
+  "./js/views/exercise-picker.js",
+  "./js/views/history.js",
+  "./js/views/photo-sheet.js",
+  "./js/views/plan-editor.js",
+  "./js/views/progress.js",
+  "./js/views/session.js",
+  "./js/views/settings.js",
+  "./js/views/train.js"
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_VERSION).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(SHELL_CACHE).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', event => {
+  const keep = new Set([SHELL_CACHE, IMAGE_CACHE]);
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(key => key !== CACHE_VERSION).map(key => caches.delete(key))))
+      .then(keys => Promise.all(keys.filter(key => !keep.has(key)).map(key => caches.delete(key))))
       .then(() => self.clients.claim())
   );
 });
@@ -66,28 +55,26 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
+  const isImage = url.pathname.includes('/img/') || url.hostname === 'raw.githubusercontent.com';
 
-  if (request.mode === 'navigate') {
-    event.respondWith(networkFirst(request));
-  } else if (url.origin === self.location.origin || url.hostname === 'raw.githubusercontent.com') {
-    event.respondWith(cacheFirst(request));
-  }
+  if (isImage) event.respondWith(cacheFirst(request, IMAGE_CACHE));
+  else if (url.origin === self.location.origin) event.respondWith(networkFirst(request));
 });
 
-// Page: always try the network so a new deploy shows up; fall back to cache when offline.
 async function networkFirst(request) {
-  const cache = await caches.open(CACHE_VERSION);
+  const cache = await caches.open(SHELL_CACHE);
   try {
     const response = await fetch(request);
-    if (response.ok) cache.put('./index.html', response.clone());
+    if (response.ok) cache.put(request, response.clone());
     return response;
   } catch {
-    return (await cache.match('./index.html')) || Response.error();
+    const fallback = request.mode === 'navigate' ? './index.html' : request;
+    return (await cache.match(fallback, { ignoreSearch: true })) || Response.error();
   }
 }
 
-async function cacheFirst(request) {
-  const cache = await caches.open(CACHE_VERSION);
+async function cacheFirst(request, cacheName) {
+  const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
   if (cached) return cached;
   const response = await fetch(request);
