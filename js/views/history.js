@@ -1,6 +1,6 @@
-import { WORKOUTS } from '../config/programs.js';
 import { store, persist } from '../core/store.js';
 import { getExercise } from '../core/exercises.js';
+import { sessionWorkoutName, workoutTag } from '../core/workouts.js';
 import { sessionsNewestFirst, volumeOf } from '../core/history.js';
 import { escapeHtml, formatDate, formatNumber } from '../core/format.js';
 import { renderThumb } from '../ui/media.js';
@@ -11,7 +11,10 @@ export function renderHistory() {
   return ui.sessionId ? renderSessionDetail(ui.sessionId) : renderHistoryList();
 }
 
-const workoutLabel = workout => (workout ? `${workout.tag} · ${escapeHtml(workout.name)}` : 'Treino');
+function workoutLabel(session) {
+  const tag = workoutTag(session.workoutId);
+  return `${tag ? `${tag} · ` : ''}${escapeHtml(sessionWorkoutName(session))}`;
+}
 
 function renderHistoryList() {
   const sessions = sessionsNewestFirst();
@@ -25,7 +28,7 @@ function renderHistoryList() {
         const sets = session.exercises.flatMap(entry => entry.sets);
         return `
           <button class="item" data-action="open-session" data-id="${session.id}">
-            <div class="main"><strong>${workoutLabel(WORKOUTS[session.workoutId])}</strong>
+            <div class="main"><strong>${workoutLabel(session)}</strong>
               <small>${formatDate(session.date, { weekday: 'long', day: '2-digit', month: '2-digit' })}</small></div>
             <div class="side"><strong>${sets.length} séries</strong><small class="muted">${formatNumber(Math.round(volumeOf(sets)))} kg</small></div>
           </button>`;
@@ -36,12 +39,11 @@ function renderHistoryList() {
 function renderSessionDetail(sessionId) {
   const session = store.data.sessions.find(s => s.id === sessionId);
   if (!session) return renderHistoryList();
-  const workout = WORKOUTS[session.workoutId];
   const minutes = session.startedAt ? Math.round((new Date(session.date) - new Date(session.startedAt)) / 60000) : null;
   return `
     <button class="back" data-action="back-history">‹ Histórico</button>
     <header class="top"><p class="eyebrow">${formatDate(session.date, { weekday: 'long', day: '2-digit', month: 'long' })}</p>
-      <h1>${workout ? escapeHtml(workout.name) : 'Treino'}</h1>${minutes !== null ? `<p class="sub">${minutes} min</p>` : ''}</header>
+      <h1>${escapeHtml(sessionWorkoutName(session))}</h1>${minutes !== null ? `<p class="sub">${minutes} min</p>` : ''}</header>
     <div class="list">
       ${session.exercises.map(entry => {
         const { name } = getExercise(entry.exerciseId);

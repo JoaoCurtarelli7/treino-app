@@ -43,12 +43,6 @@ export const trainedExerciseIds = () =>
 export const lastSessionOfWorkout = workoutId =>
   sessionsNewestFirst().find(session => session.workoutId === workoutId) || null;
 
-export function nextWorkoutId(program) {
-  const ids = program.workouts.map(workout => workout.id);
-  const last = sessionsNewestFirst().find(session => ids.includes(session.workoutId));
-  return last ? ids[(ids.indexOf(last.workoutId) + 1) % ids.length] : ids[0];
-}
-
 // Week starts on Monday, as it does at the gym.
 export function currentWeekSummary(today = new Date()) {
   const monday = startOfDay(today);

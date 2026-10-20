@@ -1,6 +1,4 @@
-import { PROGRAMS } from '../config/programs.js';
 import { store, persist, normalizeData, createEmptyData, replaceData } from '../core/store.js';
-import { isWorkoutCustomized } from '../core/exercises.js';
 import { exportPhotos, importPhotos, loadPhotos } from '../core/photos.js';
 import { loadCatalog } from '../core/catalog.js';
 import { imageCacheStatus, warmImageCache } from '../core/image-cache.js';
@@ -9,6 +7,7 @@ import { toast, pickFile } from '../ui/dom.js';
 import { stopRest } from '../ui/rest-timer.js';
 import { ui, render, navigate } from '../ui/state.js';
 import { renderPlanEditor } from './plan-editor.js';
+import { renderWorkoutListPanel } from './workouts.js';
 import { activeProfile } from '../core/profiles.js';
 import { profileInitial } from './profiles.js';
 
@@ -30,16 +29,7 @@ export function renderSettings() {
         <button class="danger" data-action="delete-profile">Excluir perfil</button>
       </div>
     </div>
-    <div class="panel">
-      <h2>Editar treinos</h2>
-      ${PROGRAMS.map(program => `
-        <p class="group-label">${program.name}</p>
-        ${program.workouts.map(workout => `
-          <button class="row-between link-row" data-action="open-plan-editor" data-id="${workout.id}">
-            <span>Treino ${workout.tag} · ${escapeHtml(workout.name)}${isWorkoutCustomized(workout.id) ? ' <small class="muted">(editado)</small>' : ''}</span>
-            <span class="chevron">›</span>
-          </button>`).join('')}`).join('')}
-    </div>
+    ${renderWorkoutListPanel()}
     <div class="panel">
       <h2>Fotos offline</h2>
       <p class="text-block" id="offline-status">${offlineStatusText()}</p>
@@ -129,9 +119,11 @@ async function importBackup() {
     const { data } = store;
     data.sessions.push(...newSessions);
     data.bodyWeights.push(...incoming.bodyWeights.filter(entry => !knownWeights.has(entry.id)));
-    for (const key of ['customExercises', 'customPlans', 'imageOverrides', 'notes']) {
+    for (const key of ['customExercises', 'imageOverrides', 'notes']) {
       data[key] = { ...incoming[key], ...data[key] };
     }
+    const knownWorkouts = new Set(data.workouts.map(workout => workout.id));
+    data.workouts.push(...incoming.workouts.filter(workout => !knownWorkouts.has(workout.id)));
     persist();
     await importPhotos(raw.photos);
     await loadPhotos();

@@ -8,7 +8,7 @@ PWA pessoal para registrar treinos no iPhone: cargas por série, último treino,
 index.html          shell da página
 css/app.css         estilos
 js/main.js          bootstrap, eventos e roteamento de ações
-js/config/          exercícios e programas (ABC, Full Body)
+js/config/          exercícios e modelos de treino (ABC, Full Body)
 js/core/            regras e dados (store, histórico, progressão, fotos, catálogo, cache)
 js/ui/              componentes (sheet, mídia, gráfico, timer, campos de plano)
 js/views/           telas (treino, sessão, evolução, histórico, ajustes, editor de treino)

@@ -290,3 +290,14 @@ body.onboarding-mode .tabbar { display: none; }
 .onboarding .sub { color: var(--muted); margin-bottom: 8px; }
 .onboarding .input { text-align: center; font-size: 18px; }
 .ex-actions button.danger { color: var(--bad); }
+
+/* ---------- per-person workouts ---------- */
+.setup { background: var(--surface); border-radius: var(--radius); padding: 20px 16px; display: grid; gap: 10px; text-align: center; }
+.setup strong { font-size: 20px; }
+.setup p { color: var(--muted); font-size: 15px; margin-bottom: 6px; }
+.workout-row { gap: 4px; border-bottom: 1px solid var(--line); padding: 2px 0; }
+.workout-row .link-row { display: flex; align-items: center; gap: 10px; border: 0; padding: 8px 0; min-width: 0; }
+.tag.small {
+  width: 28px; height: 28px; flex: none; border-radius: 8px; display: grid; place-items: center;
+  background: var(--surface-2); font-weight: 800; font-size: 14px;
+}

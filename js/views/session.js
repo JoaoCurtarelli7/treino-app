@@ -1,9 +1,10 @@
-import { WORKOUTS, planItem } from '../config/programs.js';
+import { planItem } from '../config/templates.js';
 import { DEFAULT_PLAN } from '../config/exercises.js';
 import { store, persist } from '../core/store.js';
+import { getExercise, getNote, setNote, planForEntry } from '../core/exercises.js';
 import {
-  getExercise, getNote, setNote, getWorkoutItems, setWorkoutItems, updateWorkoutItem, isInWorkout, planForEntry,
-} from '../core/exercises.js';
+  getWorkout, getWorkoutItems, setWorkoutItems, updateWorkoutItem, isInWorkout, workoutTag, sessionWorkoutName,
+} from '../core/workouts.js';
 import { lastPerformance, exerciseHistory, progressMetric, topWeight, bestReps, volumeOf } from '../core/history.js';
 import { suggestNextWeight } from '../core/progression.js';
 import { escapeHtml, formatClock, formatDate, formatNumber, formatRest, parseNumber, createId } from '../core/format.js';
@@ -16,7 +17,12 @@ import { render, navigate } from '../ui/state.js';
 import { openExercisePicker } from './exercise-picker.js';
 
 const draft = () => store.data.draft;
-const currentWorkout = () => WORKOUTS[draft().workoutId];
+// The workout may be renamed or deleted mid-session; the draft keeps its own name as a fallback.
+function currentWorkout() {
+  const { workoutId, workoutName } = draft();
+  const workout = getWorkout(workoutId);
+  return { id: workoutId, name: workout?.name ?? workoutName ?? 'Treino', tag: workoutTag(workoutId) };
+}
 const createEmptySet = () => ({ weight: '', reps: '', done: false });
 const countDone = entry => entry.sets.filter(set => set.done).length;
 
@@ -25,7 +31,16 @@ function createEntry({ exerciseId, sets, reps, rest }) {
 }
 
 export function startWorkout(workoutId) {
-  store.data.draft = { workoutId, startedAt: new Date().toISOString(), exercises: getWorkoutItems(workoutId).map(createEntry) };
+  const workout = getWorkout(workoutId);
+  if (!workout) return;
+  if (!workout.items.length) {
+    toast('Adicione exercícios a esse treino primeiro');
+    navigate({ tab: 'settings', editingWorkoutId: workoutId });
+    return;
+  }
+  store.data.draft = {
+    workoutId, workoutName: workout.name, startedAt: new Date().toISOString(), exercises: workout.items.map(createEntry),
+  };
   persist();
   navigate({});
 }
@@ -41,7 +56,7 @@ export function renderSession() {
   const totalSets = entries.reduce((total, entry) => total + entry.sets.length, 0);
   return `
     <header class="top row">
-      <div><p class="eyebrow">Treino ${workout.tag} · ${workout.programName}</p><h1>${escapeHtml(workout.name)}</h1></div>
+      <div><p class="eyebrow">${workout.tag ? `Treino ${workout.tag}` : 'Treino'}</p><h1>${escapeHtml(workout.name)}</h1></div>
       <span class="clock" id="clock">${elapsedLabel()}</span>
     </header>
     <div class="progress-track" aria-hidden="true"><span id="session-progress" style="transform:scaleX(${totalSets ? doneSets / totalSets : 0})"></span></div>
@@ -261,7 +276,7 @@ function buildSummary(session) {
   });
   const allSets = session.exercises.flatMap(entry => entry.sets);
   return {
-    workoutId: session.workoutId,
+    workoutName: sessionWorkoutName(session),
     minutes: Math.round((new Date(session.date) - new Date(session.startedAt)) / 60000),
     volume: volumeOf(allSets),
     setCount: allSets.length,
@@ -285,7 +300,10 @@ function finishWorkout() {
   const pending = current.exercises.reduce((total, entry) => total + entry.sets.filter(set => !set.done).length, 0);
   if (pending && !confirm(`${pending} série(s) sem ✓ serão ignoradas. Finalizar mesmo assim?`)) return;
 
-  const session = { id: createId(), workoutId: current.workoutId, startedAt: current.startedAt, date: new Date().toISOString(), exercises };
+  const session = {
+    id: createId(), workoutId: current.workoutId, workoutName: currentWorkout().name,
+    startedAt: current.startedAt, date: new Date().toISOString(), exercises,
+  };
   const summary = buildSummary(session);
   store.data.sessions.push(session);
   store.data.draft = null;
@@ -302,10 +320,9 @@ function discardWorkout() {
 }
 
 export function renderSummary(summary) {
-  const workout = WORKOUTS[summary.workoutId];
   const records = summary.rows.filter(row => row.isRecord).length;
   return `
-    <div class="hero"><h1>Treino concluído 💪</h1><p>${escapeHtml(workout.name)}${records ? ` · ${records} recorde(s)!` : ''}</p></div>
+    <div class="hero"><h1>Treino concluído 💪</h1><p>${escapeHtml(summary.workoutName)}${records ? ` · ${records} recorde(s)!` : ''}</p></div>
     <div class="stats">
       <div class="stat"><small>Duração</small><strong>${summary.minutes} min</strong></div>
       <div class="stat"><small>Séries</small><strong>${summary.setCount}</strong></div>

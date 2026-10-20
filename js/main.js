@@ -7,7 +7,8 @@ import { restActions } from './ui/rest-timer.js';
 import { syncWakeLock } from './ui/wake-lock.js';
 import { planFieldActions } from './ui/plan-fields.js';
 import { ui, setRenderer, navigate } from './ui/state.js';
-import { renderTrain, trainActions } from './views/train.js';
+import { renderTrain } from './views/train.js';
+import { workoutActions, handleWorkoutKeydown } from './views/workouts.js';
 import { sessionActions, updateSetField, elapsedLabel } from './views/session.js';
 import { pickerActions, handlePickerInput } from './views/exercise-picker.js';
 import { photoActions } from './views/photo-sheet.js';
@@ -23,7 +24,7 @@ const $app = document.getElementById('app');
 const VIEWS = { train: renderTrain, progress: renderProgress, history: renderHistory, settings: renderSettings };
 
 const actions = {
-  ...trainActions,
+  ...workoutActions,
   ...sessionActions,
   ...pickerActions,
   ...photoActions,
@@ -69,7 +70,7 @@ function bindEvents() {
     if (event.target.matches('[data-field]')) updateSetField(event.target);
   });
 
-  document.addEventListener('keydown', handleProfileKeydown);
+  document.addEventListener('keydown', event => handleProfileKeydown(event) || handleWorkoutKeydown(event));
 
   setInterval(() => {
     const clock = document.getElementById('clock');

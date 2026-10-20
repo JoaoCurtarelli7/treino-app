@@ -1,9 +1,10 @@
-import { WORKOUTS, planItem } from '../config/programs.js';
+import { planItem } from '../config/templates.js';
 import { DEFAULT_PLAN } from '../config/exercises.js';
 import { persist } from '../core/store.js';
+import { getExercise } from '../core/exercises.js';
 import {
-  getExercise, getWorkoutItems, setWorkoutItems, updateWorkoutItem, moveWorkoutItem, isWorkoutCustomized, restoreWorkout,
-} from '../core/exercises.js';
+  getWorkout, getWorkoutItems, setWorkoutItems, updateWorkoutItem, moveWorkoutItem, workoutTag,
+} from '../core/workouts.js';
 import { escapeHtml, formatRest } from '../core/format.js';
 import { openSheet, closeSheet, toast } from '../ui/dom.js';
 import { renderThumb, renderMedia } from '../ui/media.js';
@@ -12,12 +13,16 @@ import { ui, render, navigate } from '../ui/state.js';
 import { openExercisePicker } from './exercise-picker.js';
 
 export function renderPlanEditor(workoutId) {
-  const workout = WORKOUTS[workoutId];
-  const items = getWorkoutItems(workoutId);
+  const workout = getWorkout(workoutId);
+  if (!workout) return '<button class="back" data-action="close-plan-editor">‹ Ajustes</button>';
+  const items = workout.items;
   return `
     <button class="back" data-action="close-plan-editor">‹ Ajustes</button>
-    <header class="top"><p class="eyebrow">Treino ${workout.tag} · ${workout.programName}</p><h1>${escapeHtml(workout.name)}</h1>
-      <p class="sub">Toque num exercício para editar séries, reps, descanso e foto</p></header>
+    <header class="top row">
+      <div><p class="eyebrow">Treino ${workoutTag(workoutId)}</p><h1>${escapeHtml(workout.name)}</h1></div>
+      <button class="small-btn" data-action="rename-workout" data-id="${workoutId}">Renomear</button>
+    </header>
+    <p class="sub muted" style="margin:-8px 0 12px">${items.length ? 'Toque num exercício para editar séries, reps, descanso e foto' : 'Adicione os exercícios desse treino'}</p>
     <div class="list">
       ${items.map((item, index) => {
         const { name } = getExercise(item.exerciseId);
@@ -35,7 +40,7 @@ export function renderPlanEditor(workoutId) {
       }).join('')}
     </div>
     <button class="ghost dashed" style="margin-top:12px" data-action="add-plan-item">+ Adicionar exercício</button>
-    ${isWorkoutCustomized(workoutId) ? '<button class="ghost danger" data-action="restore-plan">Restaurar treino original</button>' : ''}`;
+    <button class="ghost danger" data-action="delete-workout" data-id="${workoutId}">Excluir treino</button>`;
 }
 
 function openPlanItemSheet(index) {
@@ -82,13 +87,6 @@ function addPlanItem() {
   });
 }
 
-function restorePlan() {
-  if (!confirm('Voltar este treino para os exercícios originais? O histórico não é afetado.')) return;
-  restoreWorkout(ui.editingWorkoutId);
-  persist();
-  render();
-}
-
 export const planEditorActions = {
   'open-plan-editor': ({ id }) => navigate({ editingWorkoutId: id }),
   'close-plan-editor': () => navigate({ editingWorkoutId: null }),
@@ -101,5 +99,4 @@ export const planEditorActions = {
     render();
   },
   'add-plan-item': () => addPlanItem(),
-  'restore-plan': () => restorePlan(),
 };

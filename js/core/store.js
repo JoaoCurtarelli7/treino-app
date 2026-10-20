@@ -1,41 +1,65 @@
-import { PROGRAMS, WORKOUTS } from '../config/programs.js';
+import { TEMPLATES } from '../config/templates.js';
 import { activeProfile } from './profiles.js';
 
-const DATA_VERSION = 2;
+const DATA_VERSION = 3;
 
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isValidSession = session =>
   isPlainObject(session) && typeof session.id === 'string' && typeof session.date === 'string' && Array.isArray(session.exercises);
 const isValidBodyWeight = entry =>
   isPlainObject(entry) && typeof entry.date === 'string' && Number.isFinite(entry.weight);
+const isValidWorkout = workout =>
+  isPlainObject(workout) && typeof workout.id === 'string' && typeof workout.name === 'string' && Array.isArray(workout.items);
 
 export function createEmptyData() {
   return {
     version: DATA_VERSION,
-    programId: PROGRAMS[0].id,
+    workouts: [],
     sessions: [],
     draft: null,
     customExercises: {},
-    customPlans: {},
     imageOverrides: {},
     notes: {},
     bodyWeights: [],
   };
 }
 
+/**
+ * Up to v2 workouts were fixed programs (programId + customPlans overrides).
+ * Someone who already trained keeps exactly what they had, with the same ids so history still lines up;
+ * an untouched profile starts empty and builds its own.
+ */
+function migrateWorkouts(value) {
+  if (Array.isArray(value?.workouts)) return value.workouts.filter(isValidWorkout);
+
+  const customPlans = isPlainObject(value?.customPlans) ? value.customPlans : {};
+  const sessions = Array.isArray(value?.sessions) ? value.sessions : [];
+  if (!sessions.length && !Object.keys(customPlans).length && !value?.draft) return [];
+
+  const program = TEMPLATES.find(template => template.id === value?.programId) || TEMPLATES[0];
+  const usedIds = new Set([...sessions.map(session => session.workoutId), value?.draft?.workoutId].filter(Boolean));
+  const otherUsed = TEMPLATES
+    .flatMap(template => template.workouts)
+    .filter(workout => usedIds.has(workout.id) && !program.workouts.includes(workout));
+
+  return [...program.workouts, ...otherUsed].map(workout => ({
+    id: workout.id,
+    name: workout.name,
+    items: (Array.isArray(customPlans[workout.id]) ? customPlans[workout.id] : workout.items).map(item => ({ ...item })),
+  }));
+}
+
 // Accepts any previous version (or a backup file) and fills in whatever is missing.
 export function normalizeData(value) {
   const base = createEmptyData();
   const objectOr = key => (isPlainObject(value?.[key]) ? value[key] : base[key]);
+  const workouts = migrateWorkouts(value);
   return {
     ...base,
-    programId: PROGRAMS.some(program => program.id === value?.programId) ? value.programId : base.programId,
+    workouts,
     sessions: Array.isArray(value?.sessions) ? value.sessions.filter(isValidSession) : [],
-    draft: value?.draft && WORKOUTS[value.draft.workoutId] ? value.draft : null,
+    draft: value?.draft && workouts.some(workout => workout.id === value.draft.workoutId) ? value.draft : null,
     customExercises: objectOr('customExercises'),
-    customPlans: Object.fromEntries(
-      Object.entries(objectOr('customPlans')).filter(([workoutId, items]) => WORKOUTS[workoutId] && Array.isArray(items))
-    ),
     imageOverrides: objectOr('imageOverrides'),
     notes: objectOr('notes'),
     bodyWeights: Array.isArray(value?.bodyWeights) ? value.bodyWeights.filter(isValidBodyWeight) : [],

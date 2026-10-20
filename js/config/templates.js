@@ -1,8 +1,9 @@
 export const planItem = (exerciseId, sets, reps, rest) => ({ exerciseId, sets, reps, rest });
 
-export const PROGRAMS = [
+// Ready-made routines a person can copy into their own workouts and then edit freely.
+export const TEMPLATES = [
   {
-    id: 'abc', name: 'ABC', workouts: [
+    id: 'abc', name: 'ABC', description: 'Peito + Tríceps · Costas + Bíceps · Pernas + Ombro', workouts: [
       { id: 'abc-a', tag: 'A', name: 'Peito + Tríceps', items: [
         planItem('bench', 4, '6–8', 150), planItem('inclineDumbbell', 3, '8–10', 120), planItem('crossover', 3, '12–15', 60),
         planItem('dips', 3, '8–12', 90), planItem('tricepsRope', 3, '10–12', 60), planItem('tricepsFrench', 3, '10–12', 60),
@@ -19,7 +20,7 @@ export const PROGRAMS = [
     ],
   },
   {
-    id: 'fullbody', name: 'Full Body', workouts: [
+    id: 'fullbody', name: 'Full Body', description: '2 treinos para o corpo todo, alternados', workouts: [
       { id: 'fb-a', tag: 'A', name: 'Full Body A', items: [
         planItem('squat', 4, '6–8', 150), planItem('bench', 4, '6–8', 150), planItem('barbellRow', 3, '8–10', 120),
         planItem('dumbbellStiff', 3, '8–10', 120), planItem('shoulderPress', 3, '8–12', 90), planItem('barbellCurl', 2, '10–12', 60),
@@ -34,6 +35,7 @@ export const PROGRAMS = [
   },
 ];
 
-export const WORKOUTS = Object.fromEntries(
-  PROGRAMS.flatMap(program => program.workouts.map(workout => [workout.id, { ...workout, programName: program.name }]))
+// Workout ids from templates are kept only to label sessions recorded before workouts became per-person.
+export const TEMPLATE_WORKOUTS = Object.fromEntries(
+  TEMPLATES.flatMap(template => template.workouts.map(workout => [workout.id, workout]))
 );

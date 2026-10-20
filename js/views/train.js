@@ -1,10 +1,9 @@
-import { PROGRAMS } from '../config/programs.js';
-import { store, persist } from '../core/store.js';
-import { getWorkoutItems } from '../core/exercises.js';
-import { lastSessionOfWorkout, nextWorkoutId, currentWeekSummary } from '../core/history.js';
+import { store } from '../core/store.js';
+import { getWorkouts, nextWorkoutId, workoutTag } from '../core/workouts.js';
+import { lastSessionOfWorkout, currentWeekSummary } from '../core/history.js';
 import { escapeHtml, formatNumber, formatRelativeDays } from '../core/format.js';
 import { activeProfile } from '../core/profiles.js';
-import { ui, render } from '../ui/state.js';
+import { ui } from '../ui/state.js';
 import { profileInitial } from './profiles.js';
 import { renderSession, renderSummary } from './session.js';
 
@@ -34,33 +33,39 @@ function renderWeekCard() {
 function renderWorkoutCard(workout, isSuggested) {
   const last = lastSessionOfWorkout(workout.id);
   const lastLabel = last ? `último ${formatRelativeDays(last.date)}` : 'ainda não feito';
+  const countLabel = workout.items.length ? `${workout.items.length} exercícios` : 'sem exercícios';
   return `
     <button class="wcard ${isSuggested ? 'next' : ''}" data-action="start" data-id="${workout.id}">
-      <span class="tag">${workout.tag}</span>
-      <span class="wbody"><strong>${escapeHtml(workout.name)}</strong><small>${getWorkoutItems(workout.id).length} exercícios · ${lastLabel}</small></span>
+      <span class="tag">${workoutTag(workout.id)}</span>
+      <span class="wbody"><strong>${escapeHtml(workout.name)}</strong><small>${countLabel} · ${lastLabel}</small></span>
       ${isSuggested ? '<span class="pill">PRÓXIMO</span>' : ''}
     </button>`;
 }
 
-function renderHome() {
-  const program = PROGRAMS.find(p => p.id === store.data.programId) || PROGRAMS[0];
-  const suggestedId = nextWorkoutId(program);
+function renderSetup() {
   return `
-    <header class="top row">
-      <div><h1>Treinar</h1><p class="sub">Olá, ${escapeHtml(activeProfile().name)} · escolha o treino de hoje</p></div>
-      <button class="avatar large" data-action="open-profiles" aria-label="Trocar de pessoa">${profileInitial(activeProfile())}</button>
-    </header>
-    ${renderWeekCard()}
-    <div class="segmented">
-      ${PROGRAMS.map(p => `<button data-action="set-program" data-id="${p.id}" class="${p.id === program.id ? 'on' : ''}">${p.name}</button>`).join('')}
-    </div>
-    <div class="cards">${program.workouts.map(workout => renderWorkoutCard(workout, workout.id === suggestedId)).join('')}</div>`;
+    <div class="setup">
+      <strong>Monte seu treino</strong>
+      <p>Crie seus treinos do zero — por exemplo A: Peito e Tríceps, B: Costas e Bíceps — ou comece de um modelo pronto e ajuste depois.</p>
+      <button class="primary" data-action="new-workout">+ Criar treino</button>
+      <button class="ghost" data-action="open-templates">Usar um modelo (ABC, Full Body)</button>
+    </div>`;
 }
 
-export const trainActions = {
-  'set-program': ({ id }) => {
-    store.data.programId = id;
-    persist();
-    render();
-  },
-};
+function renderHome() {
+  const workouts = getWorkouts();
+  const suggestedId = nextWorkoutId();
+  const header = `
+    <header class="top row">
+      <div><h1>Treinar</h1><p class="sub">Olá, ${escapeHtml(activeProfile().name)}${workouts.length ? ' · escolha o treino de hoje' : ''}</p></div>
+      <button class="avatar large" data-action="open-profiles" aria-label="Trocar de pessoa">${profileInitial(activeProfile())}</button>
+    </header>`;
+
+  if (!workouts.length) return `${header}${renderSetup()}`;
+
+  return `
+    ${header}
+    ${renderWeekCard()}
+    <div class="cards">${workouts.map(workout => renderWorkoutCard(workout, workout.id === suggestedId)).join('')}</div>
+    <button class="ghost dashed" style="margin-top:12px" data-action="new-workout">+ Novo treino</button>`;
+}
