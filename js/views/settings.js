@@ -4,11 +4,13 @@ import { isWorkoutCustomized } from '../core/exercises.js';
 import { exportPhotos, importPhotos, loadPhotos } from '../core/photos.js';
 import { loadCatalog } from '../core/catalog.js';
 import { imageCacheStatus, warmImageCache } from '../core/image-cache.js';
-import { escapeHtml, formatNumber } from '../core/format.js';
+import { escapeHtml, formatNumber, normalizeText } from '../core/format.js';
 import { toast, pickFile } from '../ui/dom.js';
 import { stopRest } from '../ui/rest-timer.js';
 import { ui, render, navigate } from '../ui/state.js';
 import { renderPlanEditor } from './plan-editor.js';
+import { activeProfile } from '../core/profiles.js';
+import { profileInitial } from './profiles.js';
 
 const offlinePhotos = { status: null, downloading: false };
 
@@ -16,6 +18,18 @@ export function renderSettings() {
   if (ui.editingWorkoutId) return renderPlanEditor(ui.editingWorkoutId);
   return `
     <header class="top"><h1>Ajustes</h1></header>
+    <div class="panel">
+      <h2>Perfil</h2>
+      <button class="row-between link-row" data-action="open-profiles">
+        <span class="profile-current"><span class="avatar">${profileInitial(activeProfile())}</span>${escapeHtml(activeProfile().name)}</span>
+        <span class="muted">Trocar ›</span>
+      </button>
+      <p class="text-block" style="margin-top:8px">Cada pessoa tem treinos, cargas, fotos e pesagens separados neste aparelho.</p>
+      <div class="ex-actions">
+        <button data-action="rename-profile">Renomear</button>
+        <button class="danger" data-action="delete-profile">Excluir perfil</button>
+      </div>
+    </div>
     <div class="panel">
       <h2>Editar treinos</h2>
       ${PROGRAMS.map(program => `
@@ -42,7 +56,7 @@ export function renderSettings() {
     <div class="panel">
       <h2>Dados</h2>
       <p class="text-block">${store.data.sessions.length} treino(s) e ${store.data.bodyWeights.length} pesagem(ns) salvos.</p>
-      <div class="finish" style="margin-top:12px"><button class="ghost danger" data-action="reset">Apagar tudo</button></div>
+      <div class="finish" style="margin-top:12px"><button class="ghost danger" data-action="reset">Apagar treinos deste perfil</button></div>
     </div>`;
 }
 
@@ -80,7 +94,8 @@ export async function syncOfflinePhotos() {
 
 async function exportBackup() {
   const backup = { ...store.data, draft: null, photos: await exportPhotos(), exportedAt: new Date().toISOString() };
-  const fileName = `treino-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  const profileSlug = normalizeText(activeProfile().name).replace(/[^a-z0-9]+/g, '-') || 'perfil';
+  const fileName = `treino-${profileSlug}-${new Date().toISOString().slice(0, 10)}.json`;
   const file = new File([JSON.stringify(backup)], fileName, { type: 'application/json' });
 
   if (navigator.canShare?.({ files: [file] })) {
@@ -128,7 +143,7 @@ async function importBackup() {
 }
 
 function resetAll() {
-  if (!confirm('Apagar TODOS os treinos e pesagens? Isso não pode ser desfeito.')) return;
+  if (!confirm(`Apagar TODOS os treinos e pesagens de ${activeProfile().name}? Isso não pode ser desfeito.`)) return;
   replaceData(createEmptyData());
   stopRest();
   navigate({ summary: null, exerciseId: null, sessionId: null, editingWorkoutId: null });

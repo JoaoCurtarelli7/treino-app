@@ -1,4 +1,7 @@
-// User photos live in IndexedDB (localStorage is too small for images).
+import { activeProfile } from './profiles.js';
+
+// User photos live in IndexedDB (localStorage is too small for images), keyed by `${profile.photoPrefix}${exerciseId}`.
+// The legacy profile uses an empty prefix; every newer profile's prefix ends in '|', which exercise ids never contain.
 const DATABASE_NAME = 'treino-photos';
 const STORE_NAME = 'photos';
 const MAX_PHOTO_SIZE = 720;
@@ -30,15 +33,39 @@ function cacheUrl(exerciseId, blob) {
   objectUrls.set(exerciseId, URL.createObjectURL(blob));
 }
 
+const currentPrefix = () => activeProfile()?.photoPrefix ?? '';
+const storageKeyFor = exerciseId => `${currentPrefix()}${exerciseId}`;
+
+const belongsTo = (key, prefix) => (prefix ? key.startsWith(prefix) : !key.includes('|'));
+
+async function readProfileEntries(prefix) {
+  const [keys, blobs] = await Promise.all([
+    runRequest('readonly', store => store.getAllKeys()),
+    runRequest('readonly', store => store.getAll()),
+  ]);
+  return keys
+    .map((key, index) => [key, blobs[index]])
+    .filter(([key]) => belongsTo(key, prefix))
+    .map(([key, blob]) => [key.slice(prefix.length), blob]);
+}
+
+// Loads only the active person's photos; previous ones are released first.
 export async function loadPhotos() {
+  objectUrls.forEach(url => URL.revokeObjectURL(url));
+  objectUrls.clear();
   try {
-    const [keys, blobs] = await Promise.all([
-      runRequest('readonly', store => store.getAllKeys()),
-      runRequest('readonly', store => store.getAll()),
-    ]);
-    keys.forEach((key, index) => cacheUrl(key, blobs[index]));
+    (await readProfileEntries(currentPrefix())).forEach(([exerciseId, blob]) => cacheUrl(exerciseId, blob));
   } catch {
     // IndexedDB unavailable (e.g. private mode): the app keeps working with catalog photos only.
+  }
+}
+
+export async function deleteProfilePhotos(prefix) {
+  try {
+    const entries = await readProfileEntries(prefix);
+    await Promise.all(entries.map(([exerciseId]) => runRequest('readwrite', store => store.delete(`${prefix}${exerciseId}`))));
+  } catch {
+    // Best effort: orphaned photos are harmless.
   }
 }
 
@@ -46,12 +73,12 @@ export const photoUrl = exerciseId => objectUrls.get(exerciseId) || null;
 export const hasPhoto = exerciseId => objectUrls.has(exerciseId);
 
 export async function savePhoto(exerciseId, blob) {
-  await runRequest('readwrite', store => store.put(blob, exerciseId));
+  await runRequest('readwrite', store => store.put(blob, storageKeyFor(exerciseId)));
   cacheUrl(exerciseId, blob);
 }
 
 export async function deletePhoto(exerciseId) {
-  await runRequest('readwrite', store => store.delete(exerciseId));
+  await runRequest('readwrite', store => store.delete(storageKeyFor(exerciseId)));
   if (objectUrls.has(exerciseId)) URL.revokeObjectURL(objectUrls.get(exerciseId));
   objectUrls.delete(exerciseId);
 }
@@ -86,11 +113,8 @@ const blobToDataUrl = blob => new Promise((resolve, reject) => {
 
 export async function exportPhotos() {
   try {
-    const [keys, blobs] = await Promise.all([
-      runRequest('readonly', store => store.getAllKeys()),
-      runRequest('readonly', store => store.getAll()),
-    ]);
-    const entries = await Promise.all(keys.map(async (key, index) => [key, await blobToDataUrl(blobs[index])]));
+    const profileEntries = await readProfileEntries(currentPrefix());
+    const entries = await Promise.all(profileEntries.map(async ([exerciseId, blob]) => [exerciseId, await blobToDataUrl(blob)]));
     return Object.fromEntries(entries);
   } catch {
     return {};

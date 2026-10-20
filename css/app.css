@@ -272,3 +272,21 @@ select.input { background-image: linear-gradient(45deg, transparent 50%, var(--m
 
 .rest { overflow: hidden; }
 .rest-bar { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--accent); transform-origin: left; }
+
+/* ---------- profiles ---------- */
+.avatar {
+  width: 32px; height: 32px; flex: none; border-radius: 50%; display: inline-grid; place-items: center;
+  background: var(--accent); color: var(--accent-ink); font-weight: 800; font-size: 15px;
+}
+.avatar.large { width: 44px; height: 44px; font-size: 19px; margin-bottom: 2px; }
+.profile-option { display: flex !important; align-items: center; gap: 12px; }
+.profile-option.current { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.profile-current { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; }
+
+body.onboarding-mode .tabbar { display: none; }
+.onboarding { min-height: 80vh; display: grid; align-content: center; gap: 14px; text-align: center; padding: 24px 4px; }
+.onboarding-icon { width: 72px; height: 72px; border-radius: 18px; margin: 0 auto 4px; }
+.onboarding h1 { font-size: 28px; letter-spacing: -0.02em; }
+.onboarding .sub { color: var(--muted); margin-bottom: 8px; }
+.onboarding .input { text-align: center; font-size: 18px; }
+.ex-actions button.danger { color: var(--bad); }

@@ -16,6 +16,8 @@ import { bodyWeightActions } from './views/body-weight.js';
 import { renderHistory, historyActions } from './views/history.js';
 import { renderSettings, settingsActions, syncOfflinePhotos } from './views/settings.js';
 import { planEditorActions } from './views/plan-editor.js';
+import { renderOnboarding, profileActions, handleProfileKeydown } from './views/profiles.js';
+import { activeProfile } from './core/profiles.js';
 
 const $app = document.getElementById('app');
 const VIEWS = { train: renderTrain, progress: renderProgress, history: renderHistory, settings: renderSettings };
@@ -30,13 +32,16 @@ const actions = {
   ...historyActions,
   ...settingsActions,
   ...planEditorActions,
+  ...profileActions,
   ...planFieldActions,
   ...restActions,
   'close-sheet': () => closeSheet(),
 };
 
 function render() {
-  $app.innerHTML = VIEWS[ui.tab]();
+  const hasProfile = Boolean(activeProfile());
+  document.body.classList.toggle('onboarding-mode', !hasProfile);
+  $app.innerHTML = hasProfile ? VIEWS[ui.tab]() : renderOnboarding();
   document.querySelectorAll('.tabbar button').forEach(button => {
     button.classList.toggle('active', button.dataset.tab === ui.tab);
   });
@@ -63,6 +68,8 @@ function bindEvents() {
     if (handlePickerInput(event.target)) return;
     if (event.target.matches('[data-field]')) updateSetField(event.target);
   });
+
+  document.addEventListener('keydown', handleProfileKeydown);
 
   setInterval(() => {
     const clock = document.getElementById('clock');

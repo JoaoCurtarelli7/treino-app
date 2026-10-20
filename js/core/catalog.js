@@ -25,6 +25,11 @@ export function loadCatalog() {
 
 export const getLoadedCatalog = () => catalogCache;
 
+// Re-applies name upgrades after the active profile (and therefore store.data) changes.
+export function syncSavedCatalogNames() {
+  if (catalogCache) translateSavedCatalogExercises(catalogCache);
+}
+
 export const catalogExerciseId = imageId => `db:${imageId}`;
 
 // Exercises saved before the catalog was translated still carry the English name: upgrade them.

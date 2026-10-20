@@ -1,6 +1,6 @@
 import { PROGRAMS, WORKOUTS } from '../config/programs.js';
+import { activeProfile } from './profiles.js';
 
-const STORAGE_KEY = 'treino-log:v1';
 const DATA_VERSION = 2;
 
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -42,9 +42,13 @@ export function normalizeData(value) {
   };
 }
 
+const storageKey = () => activeProfile()?.storageKey ?? null;
+
 function readStoredData() {
+  const key = storageKey();
+  if (!key) return createEmptyData();
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     return raw ? normalizeData(JSON.parse(raw)) : createEmptyData();
   } catch {
     return createEmptyData();
@@ -53,12 +57,19 @@ function readStoredData() {
 
 export const store = { data: readStoredData() };
 
+// Called after switching profiles so every view reads the new person's data.
+export function reloadStore() {
+  store.data = readStoredData();
+}
+
 let persistErrorListener = () => {};
 export const onPersistError = listener => { persistErrorListener = listener; };
 
 export function persist() {
+  const key = storageKey();
+  if (!key) return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(store.data));
+    localStorage.setItem(key, JSON.stringify(store.data));
   } catch {
     persistErrorListener();
   }

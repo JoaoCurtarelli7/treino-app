@@ -3,7 +3,9 @@ import { store, persist } from '../core/store.js';
 import { getWorkoutItems } from '../core/exercises.js';
 import { lastSessionOfWorkout, nextWorkoutId, currentWeekSummary } from '../core/history.js';
 import { escapeHtml, formatNumber, formatRelativeDays } from '../core/format.js';
+import { activeProfile } from '../core/profiles.js';
 import { ui, render } from '../ui/state.js';
+import { profileInitial } from './profiles.js';
 import { renderSession, renderSummary } from './session.js';
 
 const WEEKDAY_LABELS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
@@ -44,7 +46,10 @@ function renderHome() {
   const program = PROGRAMS.find(p => p.id === store.data.programId) || PROGRAMS[0];
   const suggestedId = nextWorkoutId(program);
   return `
-    <header class="top"><h1>Treinar</h1><p class="sub">Escolha o treino de hoje</p></header>
+    <header class="top row">
+      <div><h1>Treinar</h1><p class="sub">Olá, ${escapeHtml(activeProfile().name)} · escolha o treino de hoje</p></div>
+      <button class="avatar large" data-action="open-profiles" aria-label="Trocar de pessoa">${profileInitial(activeProfile())}</button>
+    </header>
     ${renderWeekCard()}
     <div class="segmented">
       ${PROGRAMS.map(p => `<button data-action="set-program" data-id="${p.id}" class="${p.id === program.id ? 'on' : ''}">${p.name}</button>`).join('')}
