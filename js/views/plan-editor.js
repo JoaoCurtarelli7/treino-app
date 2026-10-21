@@ -52,6 +52,7 @@ function openPlanItemSheet(index) {
       ${renderPlanFields(item)}
       <button class="primary" data-action="save-plan-item" data-index="${index}">Salvar</button>
       <div class="choice">
+        <button data-action="swap-plan-item" data-index="${index}">⇄ Trocar exercício</button>
         <button data-action="change-photo" data-id="${escapeHtml(item.exerciseId)}">📷 Trocar foto</button>
         <button class="danger" data-action="remove-plan-item" data-index="${index}">Remover do treino</button>
       </div>
@@ -71,6 +72,26 @@ function removePlanItem(index) {
   persist();
   closeSheet();
   render();
+}
+
+// Keeps sets/reps/rest and position; only the exercise changes.
+function swapPlanItem(index) {
+  const workoutId = ui.editingWorkoutId;
+  const items = getWorkoutItems(workoutId);
+  const { exerciseId } = items[index];
+  const { name, group } = getExercise(exerciseId);
+  openExercisePicker({
+    title: `Trocar ${name} por…`,
+    group: group && group !== 'other' ? group : 'all',
+    excludeIds: new Set(items.map(item => item.exerciseId)),
+    onPick: newExerciseId => {
+      setWorkoutItems(workoutId, getWorkoutItems(workoutId).map((item, itemIndex) =>
+        (itemIndex === index ? { ...item, exerciseId: newExerciseId } : item)));
+      persist();
+      render();
+      toast('Exercício trocado');
+    },
+  });
 }
 
 function addPlanItem() {
@@ -99,4 +120,5 @@ export const planEditorActions = {
     render();
   },
   'add-plan-item': () => addPlanItem(),
+  'swap-plan-item': ({ index }) => swapPlanItem(Number(index)),
 };

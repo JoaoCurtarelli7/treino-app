@@ -84,8 +84,10 @@ function renderEntryCard(entry, index) {
           <h3>${escapeHtml(exercise.name)}</h3>
           <p class="target">${plan.sets} × ${escapeHtml(plan.reps)} ${repsLabel} · ${formatRest(plan.rest)} · <span data-count="${index}">${countDone(entry)}/${entry.sets.length}</span></p>
         </button>
+        <button class="icon-btn" data-action="swap-entry" data-ex="${index}" aria-label="Trocar exercício">⇄</button>
         <button class="icon-btn" data-action="open-entry" data-ex="${index}" aria-label="Opções do exercício">⋯</button>
       </div>
+      ${entry.substituteFor ? `<p class="note">⇄ No lugar de ${escapeHtml(getExercise(entry.substituteFor).name)}</p>` : ''}
       ${note ? `<p class="note">📝 ${escapeHtml(note)}</p>` : ''}
       ${last
         ? `<p class="last"><b>Último · ${formatDate(last.date)}</b>${formatSets(last.sets, entry.exerciseId)}</p>`
@@ -194,6 +196,7 @@ function openEntrySheet(entryIndex) {
       ${inPlan ? `<label class="toggle"><input type="checkbox" id="entry-apply-plan" checked> Usar essas séries/reps/descanso nos próximos Treinos ${workout.tag}</label>` : ''}
       <button class="primary" data-action="save-entry" data-ex="${entryIndex}">Salvar</button>
       <div class="choice">
+        <button data-action="swap-entry" data-ex="${entryIndex}">⇄ Trocar exercício<small>Quando não dá pra fazer esse hoje</small></button>
         <button data-action="change-photo" data-id="${escapeHtml(entry.exerciseId)}">📷 Trocar foto</button>
         ${isFirst ? '' : `<button data-action="move-entry" data-ex="${entryIndex}" data-offset="-1">↑ Mover para cima</button>`}
         ${isLast ? '' : `<button data-action="move-entry" data-ex="${entryIndex}" data-offset="1">↓ Mover para baixo</button>`}
@@ -242,6 +245,59 @@ function removeEntry(entryIndex, scope) {
   persist();
   closeSheet();
   render();
+}
+
+/* ---------- Swap exercise ---------- */
+
+// Sets already logged stay with the original exercise; only what's left moves to the substitute.
+function swapEntry(entryIndex, newExerciseId) {
+  const entries = draft().exercises;
+  const entry = entries[entryIndex];
+  const plan = planForEntry(entry, draft().workoutId);
+  const doneSets = entry.sets.filter(set => set.done);
+  const originalId = entry.substituteFor ?? entry.exerciseId;
+
+  if (!doneSets.length) {
+    entries[entryIndex] = {
+      exerciseId: newExerciseId, plan, sets: entry.sets.map(createEmptySet), substituteFor: originalId,
+    };
+    return entryIndex;
+  }
+  entry.sets = doneSets;
+  const remaining = Math.max(1, plan.sets - doneSets.length);
+  entries.splice(entryIndex + 1, 0, {
+    exerciseId: newExerciseId, plan, sets: Array.from({ length: remaining }, createEmptySet), substituteFor: entry.exerciseId,
+  });
+  return entryIndex + 1;
+}
+
+function replaceInWorkout(workoutId, oldExerciseId, newExerciseId) {
+  const seen = new Set();
+  setWorkoutItems(workoutId, getWorkoutItems(workoutId)
+    .map(item => (item.exerciseId === oldExerciseId ? { ...item, exerciseId: newExerciseId } : item))
+    .filter(item => !seen.has(item.exerciseId) && seen.add(item.exerciseId)));
+}
+
+function openSwapEntry(entryIndex) {
+  const entry = draft().exercises[entryIndex];
+  const workout = currentWorkout();
+  const exercise = getExercise(entry.exerciseId);
+  const inPlan = isInWorkout(workout.id, entry.exerciseId);
+  openExercisePicker({
+    title: `Trocar ${exercise.name} por…`,
+    group: exercise.group && exercise.group !== 'other' ? exercise.group : 'all',
+    excludeIds: new Set(draft().exercises.map(item => item.exerciseId)),
+    toggleLabel: inPlan ? `Trocar também nos próximos Treinos ${workout.tag}` : '',
+    onPick: (newExerciseId, { keep }) => {
+      const oldExerciseId = entry.exerciseId;
+      const targetIndex = swapEntry(entryIndex, newExerciseId);
+      if (keep) replaceInWorkout(workout.id, oldExerciseId, newExerciseId);
+      persist();
+      render();
+      document.getElementById(`ex-${targetIndex}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      toast(keep ? `Trocado também no Treino ${workout.tag}` : 'Exercício trocado só hoje');
+    },
+  });
 }
 
 function openAddEntry() {
@@ -353,6 +409,7 @@ export const sessionActions = {
   'move-entry': ({ ex, offset }) => moveEntry(Number(ex), Number(offset)),
   'remove-entry': ({ ex, scope }) => removeEntry(Number(ex), scope),
   'add-entry': () => openAddEntry(),
+  'swap-entry': ({ ex }) => openSwapEntry(Number(ex)),
   finish: () => finishWorkout(),
   discard: () => { if (confirm('Descartar o treino em andamento?')) discardWorkout(); },
   'close-summary': () => navigate({ summary: null }),
