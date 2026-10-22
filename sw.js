@@ -1,6 +1,6 @@
 // App shell: network-first so every deploy shows up immediately, cache as offline fallback.
 // Photos: cache-first in a separate cache that app updates never wipe.
-const SHELL_CACHE = 'treino-shell-v7';
+const SHELL_CACHE = 'treino-shell-v8';
 const IMAGE_CACHE = 'treino-images-v1';
 const APP_SHELL = [
   "./",

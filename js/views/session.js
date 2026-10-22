@@ -4,6 +4,7 @@ import { store, persist } from '../core/store.js';
 import { getExercise, getNote, setNote, planForEntry } from '../core/exercises.js';
 import {
   getWorkout, getWorkoutItems, setWorkoutItems, updateWorkoutItem, isInWorkout, workoutTag, sessionWorkoutName,
+  getPendingWorkout, pendingItems, setPendingWorkout, clearPendingWorkout,
 } from '../core/workouts.js';
 import { lastPerformance, exerciseHistory, progressMetric, topWeight, bestReps, volumeOf } from '../core/history.js';
 import { suggestNextWeight } from '../core/progression.js';
@@ -30,7 +31,8 @@ function createEntry({ exerciseId, sets, reps, rest }) {
   return { exerciseId, plan: { sets, reps, rest }, sets: Array.from({ length: sets }, createEmptySet) };
 }
 
-export function startWorkout(workoutId) {
+// `continuation` starts only the exercises left over from a split workout.
+export function startWorkout(workoutId, { continuation = false } = {}) {
   const workout = getWorkout(workoutId);
   if (!workout) return;
   if (!workout.items.length) {
@@ -38,9 +40,16 @@ export function startWorkout(workoutId) {
     navigate({ tab: 'settings', editingWorkoutId: workoutId });
     return;
   }
+  const items = continuation && getPendingWorkout()?.workoutId === workoutId && pendingItems().length ? pendingItems() : workout.items;
   store.data.draft = {
-    workoutId, workoutName: workout.name, startedAt: new Date().toISOString(), exercises: workout.items.map(createEntry),
+    workoutId,
+    workoutName: workout.name,
+    startedAt: new Date().toISOString(),
+    continuation: items !== workout.items,
+    plannedIds: items.map(item => item.exerciseId),
+    exercises: items.map(createEntry),
   };
+  closeSheet();
   persist();
   navigate({});
 }
@@ -56,7 +65,7 @@ export function renderSession() {
   const totalSets = entries.reduce((total, entry) => total + entry.sets.length, 0);
   return `
     <header class="top row">
-      <div><p class="eyebrow">${workout.tag ? `Treino ${workout.tag}` : 'Treino'}</p><h1>${escapeHtml(workout.name)}</h1></div>
+      <div><p class="eyebrow">${workout.tag ? `Treino ${workout.tag}` : 'Treino'}${draft().continuation ? ' · continuação' : ''}</p><h1>${escapeHtml(workout.name)}</h1></div>
       <span class="clock" id="clock">${elapsedLabel()}</span>
     </header>
     <div class="progress-track" aria-hidden="true"><span id="session-progress" style="transform:scaleX(${totalSets ? doneSets / totalSets : 0})"></span></div>
@@ -340,14 +349,37 @@ function buildSummary(session) {
   };
 }
 
-function finishWorkout() {
-  const current = draft();
-  const exercises = current.exercises
+function loggedExercises(current) {
+  return current.exercises
     .map(entry => ({
       exerciseId: entry.exerciseId,
+      ...(entry.substituteFor ? { substituteFor: entry.substituteFor } : {}),
       sets: entry.sets.filter(set => set.done).map(set => ({ weight: parseNumber(set.weight) ?? 0, reps: parseNumber(set.reps) })),
     }))
     .filter(entry => entry.sets.length);
+}
+
+// Planned exercises (still in the workout) with no logged set; a substitute counts for the one it replaced.
+function missingPlannedIds(current, exercises) {
+  const plannedIds = current.plannedIds ?? getWorkoutItems(current.workoutId).map(item => item.exerciseId);
+  const doneIds = new Set(exercises.flatMap(entry => [entry.exerciseId, entry.substituteFor].filter(Boolean)));
+  return plannedIds.filter(id => !doneIds.has(id) && isInWorkout(current.workoutId, id));
+}
+
+function openLeftoverChoice(missingIds) {
+  const workout = currentWorkout();
+  openSheet(`
+    <div class="sheet-head"><h2>Faltou parte do treino</h2><button data-action="close-sheet">Voltar</button></div>
+    <p class="text-block">Ficaram sem nenhuma série: <b>${missingIds.map(id => escapeHtml(getExercise(id).name)).join(', ')}</b>.</p>
+    <div class="choice">
+      <button data-action="finish-later">⏭️ Fazer o resto depois<small>O Treino ${workout.tag} continua como próximo, só com esses ${missingIds.length} exercício(s)</small></button>
+      <button data-action="finish-complete">✅ Treino concluído assim<small>Segue pro próximo treino da lista</small></button>
+    </div>`);
+}
+
+function finishWorkout() {
+  const current = draft();
+  const exercises = loggedExercises(current);
 
   if (!exercises.length) {
     if (confirm('Nenhuma série marcada. Descartar este treino?')) discardWorkout();
@@ -356,16 +388,30 @@ function finishWorkout() {
   const pending = current.exercises.reduce((total, entry) => total + entry.sets.filter(set => !set.done).length, 0);
   if (pending && !confirm(`${pending} série(s) sem ✓ serão ignoradas. Finalizar mesmo assim?`)) return;
 
+  const missingIds = missingPlannedIds(current, exercises);
+  if (missingIds.length) openLeftoverChoice(missingIds);
+  else commitFinish({ keepLeftovers: false });
+}
+
+function commitFinish({ keepLeftovers }) {
+  const current = draft();
+  const exercises = loggedExercises(current);
   const session = {
     id: createId(), workoutId: current.workoutId, workoutName: currentWorkout().name,
+    ...(current.continuation ? { part: 'continuation' } : {}),
     startedAt: current.startedAt, date: new Date().toISOString(), exercises,
   };
   const summary = buildSummary(session);
   store.data.sessions.push(session);
+
+  if (keepLeftovers) setPendingWorkout(current.workoutId, missingPlannedIds(current, exercises));
+  else if (getPendingWorkout()?.workoutId === current.workoutId) clearPendingWorkout();
+
   store.data.draft = null;
   stopRest();
+  closeSheet();
   persist();
-  navigate({ summary });
+  navigate({ summary: { ...summary, leftovers: keepLeftovers } });
 }
 
 function discardWorkout() {
@@ -378,7 +424,8 @@ function discardWorkout() {
 export function renderSummary(summary) {
   const records = summary.rows.filter(row => row.isRecord).length;
   return `
-    <div class="hero"><h1>Treino concluído 💪</h1><p>${escapeHtml(summary.workoutName)}${records ? ` · ${records} recorde(s)!` : ''}</p></div>
+    <div class="hero"><h1>${summary.leftovers ? 'Parte do treino feita 💪' : 'Treino concluído 💪'}</h1><p>${escapeHtml(summary.workoutName)}${records ? ` · ${records} recorde(s)!` : ''}</p>
+      ${summary.leftovers ? '<p class="tip" style="margin-top:10px">O resto fica pra próxima: ele aparece como PRÓXIMO na tela inicial.</p>' : ''}</div>
     <div class="stats">
       <div class="stat"><small>Duração</small><strong>${summary.minutes} min</strong></div>
       <div class="stat"><small>Séries</small><strong>${summary.setCount}</strong></div>
@@ -403,6 +450,9 @@ export function renderSummary(summary) {
 
 export const sessionActions = {
   start: ({ id }) => startWorkout(id),
+  'start-continuation': ({ id }) => startWorkout(id, { continuation: true }),
+  'finish-later': () => commitFinish({ keepLeftovers: true }),
+  'finish-complete': () => commitFinish({ keepLeftovers: false }),
   'toggle-set': ({ ex, set }) => toggleSet(Number(ex), Number(set)),
   'add-set': ({ ex }) => addSet(Number(ex)),
   'remove-set': ({ ex }) => removeSet(Number(ex)),

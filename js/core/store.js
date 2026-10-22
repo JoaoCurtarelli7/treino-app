@@ -24,6 +24,7 @@ export function createEmptyData() {
     notes: {},
     bodyWeights: [],
     cardio: [],
+    pendingWorkout: null,
   };
 }
 
@@ -67,6 +68,10 @@ export function normalizeData(value) {
     notes: objectOr('notes'),
     bodyWeights: Array.isArray(value?.bodyWeights) ? value.bodyWeights.filter(isValidBodyWeight) : [],
     cardio: Array.isArray(value?.cardio) ? value.cardio.filter(isValidCardio) : [],
+    pendingWorkout: isPlainObject(value?.pendingWorkout)
+      && workouts.some(workout => workout.id === value.pendingWorkout.workoutId)
+      && Array.isArray(value.pendingWorkout.exerciseIds)
+      ? value.pendingWorkout : null,
   };
 }
 

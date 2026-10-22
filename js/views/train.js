@@ -1,9 +1,13 @@
-import { store } from '../core/store.js';
-import { getWorkouts, nextWorkoutId, workoutTag } from '../core/workouts.js';
+import { store, persist } from '../core/store.js';
+import {
+  getWorkouts, getWorkout, nextWorkoutId, workoutTag, getPendingWorkout, pendingItems, clearPendingWorkout,
+} from '../core/workouts.js';
+import { getExercise } from '../core/exercises.js';
+import { openSheet, closeSheet, toast } from '../ui/dom.js';
 import { lastSessionOfWorkout, currentWeekSummary } from '../core/history.js';
 import { escapeHtml, formatNumber, formatRelativeDays } from '../core/format.js';
 import { activeProfile } from '../core/profiles.js';
-import { ui } from '../ui/state.js';
+import { ui, render } from '../ui/state.js';
 import { profileInitial } from './profiles.js';
 import { renderSession, renderSummary } from './session.js';
 
@@ -30,17 +34,46 @@ function renderWeekCard() {
     </div>`;
 }
 
+const hasLeftovers = workoutId => getPendingWorkout()?.workoutId === workoutId && pendingItems().length > 0;
+
 function renderWorkoutCard(workout, isSuggested) {
   const last = lastSessionOfWorkout(workout.id);
   const lastLabel = last ? `último ${formatRelativeDays(last.date)}` : 'ainda não feito';
-  const countLabel = workout.items.length ? `${workout.items.length} exercícios` : 'sem exercícios';
+  const leftovers = hasLeftovers(workout.id);
+  const detail = leftovers
+    ? `faltam ${pendingItems().length} exercício(s) · ${lastLabel}`
+    : `${workout.items.length ? `${workout.items.length} exercícios` : 'sem exercícios'} · ${lastLabel}`;
   return `
-    <button class="wcard ${isSuggested ? 'next' : ''}" data-action="start" data-id="${workout.id}">
+    <button class="wcard ${isSuggested ? 'next' : ''} ${leftovers ? 'partial' : ''}" data-action="${leftovers ? 'open-leftovers' : 'start'}" data-id="${workout.id}">
       <span class="tag">${workoutTag(workout.id)}</span>
-      <span class="wbody"><strong>${escapeHtml(workout.name)}</strong><small>${countLabel} · ${lastLabel}</small></span>
-      ${isSuggested ? '<span class="pill">PRÓXIMO</span>' : ''}
+      <span class="wbody"><strong>${escapeHtml(workout.name)}</strong><small>${detail}</small></span>
+      ${isSuggested ? `<span class="pill">${leftovers ? 'CONTINUAR' : 'PRÓXIMO'}</span>` : ''}
     </button>`;
 }
+
+function openLeftoversSheet(workoutId) {
+  const workout = getWorkout(workoutId);
+  const items = pendingItems();
+  openSheet(`
+    <div class="sheet-head"><h2>Treino ${workoutTag(workoutId)} · ${escapeHtml(workout.name)}</h2><button data-action="close-sheet">Fechar</button></div>
+    <p class="text-block">Ficou pendente da última vez: <b>${items.map(item => escapeHtml(getExercise(item.exerciseId).name)).join(', ')}</b>.</p>
+    <div class="choice">
+      <button data-action="start-continuation" data-id="${workoutId}">▶️ Continuar de onde parei<small>Só os ${items.length} exercício(s) que faltaram</small></button>
+      <button data-action="start" data-id="${workoutId}">🔁 Fazer o treino completo<small>Todos os ${workout.items.length} exercícios</small></button>
+      <button class="danger" data-action="discard-leftovers">Esquecer o que faltou<small>Segue pro próximo treino da lista</small></button>
+    </div>`);
+}
+
+export const trainActions = {
+  'open-leftovers': ({ id }) => openLeftoversSheet(id),
+  'discard-leftovers': () => {
+    clearPendingWorkout();
+    persist();
+    closeSheet();
+    render();
+    toast('Pendência descartada');
+  },
+};
 
 function renderSetup() {
   return `

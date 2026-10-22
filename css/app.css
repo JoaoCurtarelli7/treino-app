@@ -313,3 +313,7 @@ body.onboarding-mode .tabbar { display: none; }
 .home-actions { margin-top: 12px; }
 .home-actions button { padding: 12px; color: var(--accent); }
 .item .main small + .sets-line { margin-top: 0; }
+
+/* ---------- split workouts ---------- */
+.wcard.partial .tag { background: repeating-linear-gradient(135deg, var(--accent) 0 6px, rgba(198, 244, 50, .55) 6px 12px); color: var(--accent-ink); }
+.wcard.partial:not(.next) { border-color: rgba(198, 244, 50, .4); }

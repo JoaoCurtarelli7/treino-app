@@ -15,7 +15,7 @@ export function renderHistory() {
 
 function workoutLabel(session) {
   const tag = workoutTag(session.workoutId);
-  return `${tag ? `${tag} · ` : ''}${escapeHtml(sessionWorkoutName(session))}`;
+  return `${tag ? `${tag} · ` : ''}${escapeHtml(sessionWorkoutName(session))}${session.part === 'continuation' ? ' <small class="muted">(continuação)</small>' : ''}`;
 }
 
 function renderSessionItem(session) {

@@ -7,7 +7,7 @@ import { restActions } from './ui/rest-timer.js';
 import { syncWakeLock } from './ui/wake-lock.js';
 import { planFieldActions } from './ui/plan-fields.js';
 import { ui, setRenderer, navigate } from './ui/state.js';
-import { renderTrain } from './views/train.js';
+import { renderTrain, trainActions } from './views/train.js';
 import { workoutActions, handleWorkoutKeydown } from './views/workouts.js';
 import { sessionActions, updateSetField, elapsedLabel } from './views/session.js';
 import { pickerActions, handlePickerInput } from './views/exercise-picker.js';
@@ -26,6 +26,7 @@ const VIEWS = { train: renderTrain, progress: renderProgress, history: renderHis
 
 const actions = {
   ...workoutActions,
+  ...trainActions,
   ...sessionActions,
   ...pickerActions,
   ...photoActions,

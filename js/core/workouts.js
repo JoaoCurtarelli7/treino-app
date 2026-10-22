@@ -69,9 +69,33 @@ export function sessionWorkoutName(session) {
   return session.workoutName || getWorkout(session.workoutId)?.name || TEMPLATE_WORKOUTS[session.workoutId]?.name || 'Treino';
 }
 
+/* ---------- Split workouts ---------- */
+// A workout finished halfway keeps its remaining exercises here until the next session of that workout.
+
+export function getPendingWorkout() {
+  const pending = store.data.pendingWorkout;
+  return pending && getWorkout(pending.workoutId) ? pending : null;
+}
+
+export function pendingItems() {
+  const pending = getPendingWorkout();
+  if (!pending) return [];
+  const ids = new Set(pending.exerciseIds);
+  return getWorkoutItems(pending.workoutId).filter(item => ids.has(item.exerciseId));
+}
+
+export function setPendingWorkout(workoutId, exerciseIds) {
+  store.data.pendingWorkout = exerciseIds.length ? { workoutId, exerciseIds, date: new Date().toISOString() } : null;
+}
+
+export function clearPendingWorkout() {
+  store.data.pendingWorkout = null;
+}
+
 export function nextWorkoutId() {
   const workouts = getWorkouts();
   if (!workouts.length) return null;
+  if (pendingItems().length) return getPendingWorkout().workoutId;
   const ids = workouts.map(workout => workout.id);
   const last = [...store.data.sessions]
     .sort((a, b) => b.date.localeCompare(a.date))
