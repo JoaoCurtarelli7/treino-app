@@ -395,7 +395,10 @@ export function renderSummary(summary) {
           <div class="side">${row.previous === null ? '<span class="delta same">1ª vez</span>' : formatDelta(row.current - row.previous, row.unit)}</div>
         </div>`).join('')}
     </div>
-    <div class="finish" style="margin-top:16px"><button class="primary" data-action="close-summary">Fechar</button></div>`;
+    <div class="finish" style="margin-top:16px">
+      <button class="primary" data-action="close-summary">Fechar</button>
+      <button class="ghost" data-action="new-cardio">🏃 Fez cardio depois? Registrar</button>
+    </div>`;
 }
 
 export const sessionActions = {

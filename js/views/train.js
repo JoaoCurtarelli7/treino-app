@@ -21,11 +21,11 @@ function renderWeekCard() {
     <div class="week">
       <div class="week-head">
         <strong>Esta semana</strong>
-        <span class="muted">${week.count} treino(s)${week.volume ? ` · ${formatNumber(Math.round(week.volume))} kg` : ''}</span>
+        <span class="muted">${week.count} treino(s)${week.cardioCount ? ` · ${week.cardioCount} cardio` : ''}${week.volume ? ` · ${formatNumber(Math.round(week.volume))} kg` : ''}</span>
       </div>
       <div class="week-days">
         ${week.days.map((day, index) => `
-          <span class="day ${day.trained ? 'on' : ''} ${day.isToday ? 'today' : ''}">${WEEKDAY_LABELS[index]}</span>`).join('')}
+          <span class="day ${day.trained ? 'on' : day.cardio ? 'cardio' : ''} ${day.isToday ? 'today' : ''}">${WEEKDAY_LABELS[index]}</span>`).join('')}
       </div>
     </div>`;
 }
@@ -49,7 +49,8 @@ function renderSetup() {
       <p>Crie seus treinos do zero — por exemplo A: Peito e Tríceps, B: Costas e Bíceps — ou comece de um modelo pronto e ajuste depois.</p>
       <button class="primary" data-action="new-workout">+ Criar treino</button>
       <button class="ghost" data-action="open-templates">Usar um modelo (ABC, Full Body)</button>
-    </div>`;
+    </div>
+    <button class="ghost dashed" style="margin-top:12px" data-action="new-cardio">🏃 Registrar cardio</button>`;
 }
 
 function renderHome() {
@@ -67,5 +68,8 @@ function renderHome() {
     ${header}
     ${renderWeekCard()}
     <div class="cards">${workouts.map(workout => renderWorkoutCard(workout, workout.id === suggestedId)).join('')}</div>
-    <button class="ghost dashed" style="margin-top:12px" data-action="new-workout">+ Novo treino</button>`;
+    <div class="ex-actions home-actions">
+      <button data-action="new-cardio">🏃 Registrar cardio</button>
+      <button data-action="new-workout">+ Novo treino</button>
+    </div>`;
 }

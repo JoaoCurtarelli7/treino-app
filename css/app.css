@@ -301,3 +301,15 @@ body.onboarding-mode .tabbar { display: none; }
   width: 28px; height: 28px; flex: none; border-radius: 8px; display: grid; place-items: center;
   background: var(--surface-2); font-weight: 800; font-size: 14px;
 }
+
+/* ---------- cardio ---------- */
+:root { --cardio: #4cc9f0; }
+.day.cardio { background: rgba(76, 201, 240, .18); color: var(--cardio); }
+.chips.wrap { flex-wrap: wrap; overflow: visible; margin: 0; padding: 0; }
+.segmented.compact { margin-bottom: 0; }
+.field-row.two { grid-template-columns: 1fr 1fr; }
+.cardio-icon { background: rgba(76, 201, 240, .15); font-size: 24px; }
+.stat .unit { display: inline; font-size: 13px; color: var(--muted); text-transform: none; letter-spacing: 0; }
+.home-actions { margin-top: 12px; }
+.home-actions button { padding: 12px; color: var(--accent); }
+.item .main small + .sets-line { margin-top: 0; }

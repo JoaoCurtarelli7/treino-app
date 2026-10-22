@@ -53,10 +53,19 @@ export function currentWeekSummary(today = new Date()) {
     return day;
   });
   const sessions = store.data.sessions.filter(session => new Date(session.date) >= monday);
-  const trainedDays = new Set(sessions.map(session => startOfDay(new Date(session.date)).getTime()));
+  const cardio = store.data.cardio.filter(entry => new Date(entry.date) >= monday);
+  const dayKey = iso => startOfDay(new Date(iso)).getTime();
+  const trainedDays = new Set(sessions.map(session => dayKey(session.date)));
+  const cardioDays = new Set(cardio.map(entry => dayKey(entry.date)));
   return {
-    days: days.map(day => ({ date: day, trained: trainedDays.has(day.getTime()), isToday: day.getTime() === startOfDay(today).getTime() })),
+    days: days.map(day => ({
+      date: day,
+      trained: trainedDays.has(day.getTime()),
+      cardio: cardioDays.has(day.getTime()),
+      isToday: day.getTime() === startOfDay(today).getTime(),
+    })),
     count: sessions.length,
+    cardioCount: cardio.length,
     volume: volumeOf(sessions.flatMap(session => session.exercises.flatMap(entry => entry.sets))),
   };
 }

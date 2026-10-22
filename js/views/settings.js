@@ -45,7 +45,7 @@ export function renderSettings() {
     </div>
     <div class="panel">
       <h2>Dados</h2>
-      <p class="text-block">${store.data.sessions.length} treino(s) e ${store.data.bodyWeights.length} pesagem(ns) salvos.</p>
+      <p class="text-block">${store.data.sessions.length} treino(s), ${store.data.cardio.length} cardio e ${store.data.bodyWeights.length} pesagem(ns) salvos.</p>
       <div class="finish" style="margin-top:12px"><button class="ghost danger" data-action="reset">Apagar treinos deste perfil</button></div>
     </div>`;
 }
@@ -119,6 +119,8 @@ async function importBackup() {
     const { data } = store;
     data.sessions.push(...newSessions);
     data.bodyWeights.push(...incoming.bodyWeights.filter(entry => !knownWeights.has(entry.id)));
+    const knownCardio = new Set(data.cardio.map(entry => entry.id));
+    data.cardio.push(...incoming.cardio.filter(entry => !knownCardio.has(entry.id)));
     for (const key of ['customExercises', 'imageOverrides', 'notes']) {
       data[key] = { ...incoming[key], ...data[key] };
     }
@@ -135,7 +137,7 @@ async function importBackup() {
 }
 
 function resetAll() {
-  if (!confirm(`Apagar TODOS os treinos e pesagens de ${activeProfile().name}? Isso não pode ser desfeito.`)) return;
+  if (!confirm(`Apagar TODOS os treinos, cardios e pesagens de ${activeProfile().name}? Isso não pode ser desfeito.`)) return;
   replaceData(createEmptyData());
   stopRest();
   navigate({ summary: null, exerciseId: null, sessionId: null, editingWorkoutId: null });

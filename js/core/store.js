@@ -8,6 +8,8 @@ const isValidSession = session =>
   isPlainObject(session) && typeof session.id === 'string' && typeof session.date === 'string' && Array.isArray(session.exercises);
 const isValidBodyWeight = entry =>
   isPlainObject(entry) && typeof entry.date === 'string' && Number.isFinite(entry.weight);
+const isValidCardio = entry =>
+  isPlainObject(entry) && typeof entry.id === 'string' && typeof entry.date === 'string' && Number.isFinite(entry.minutes);
 const isValidWorkout = workout =>
   isPlainObject(workout) && typeof workout.id === 'string' && typeof workout.name === 'string' && Array.isArray(workout.items);
 
@@ -21,6 +23,7 @@ export function createEmptyData() {
     imageOverrides: {},
     notes: {},
     bodyWeights: [],
+    cardio: [],
   };
 }
 
@@ -63,6 +66,7 @@ export function normalizeData(value) {
     imageOverrides: objectOr('imageOverrides'),
     notes: objectOr('notes'),
     bodyWeights: Array.isArray(value?.bodyWeights) ? value.bodyWeights.filter(isValidBodyWeight) : [],
+    cardio: Array.isArray(value?.cardio) ? value.cardio.filter(isValidCardio) : [],
   };
 }
 

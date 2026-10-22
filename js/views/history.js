@@ -6,6 +6,8 @@ import { escapeHtml, formatDate, formatNumber } from '../core/format.js';
 import { renderThumb } from '../ui/media.js';
 import { formatSets, emptyState } from '../ui/fragments.js';
 import { ui, navigate } from '../ui/state.js';
+import { cardioNewestFirst } from '../core/cardio.js';
+import { renderCardioItem } from './cardio.js';
 
 export function renderHistory() {
   return ui.sessionId ? renderSessionDetail(ui.sessionId) : renderHistoryList();
@@ -16,24 +18,31 @@ function workoutLabel(session) {
   return `${tag ? `${tag} · ` : ''}${escapeHtml(sessionWorkoutName(session))}`;
 }
 
-function renderHistoryList() {
-  const sessions = sessionsNewestFirst();
-  if (!sessions.length) {
-    return `<header class="top"><h1>Histórico</h1></header>${emptyState('Nenhum treino salvo', 'Os treinos finalizados aparecem aqui.')}`;
-  }
+function renderSessionItem(session) {
+  const sets = session.exercises.flatMap(entry => entry.sets);
   return `
-    <header class="top"><h1>Histórico</h1><p class="sub">${sessions.length} treino(s) registrados</p></header>
-    <div class="list">
-      ${sessions.map(session => {
-        const sets = session.exercises.flatMap(entry => entry.sets);
-        return `
           <button class="item" data-action="open-session" data-id="${session.id}">
             <div class="main"><strong>${workoutLabel(session)}</strong>
               <small>${formatDate(session.date, { weekday: 'long', day: '2-digit', month: '2-digit' })}</small></div>
             <div class="side"><strong>${sets.length} séries</strong><small class="muted">${formatNumber(Math.round(volumeOf(sets)))} kg</small></div>
           </button>`;
-      }).join('')}
-    </div>`;
+}
+
+// Strength sessions and cardio share one timeline, newest first.
+function renderHistoryList() {
+  const sessions = sessionsNewestFirst();
+  const cardio = cardioNewestFirst();
+  if (!sessions.length && !cardio.length) {
+    return `<header class="top"><h1>Histórico</h1></header>${emptyState('Nenhum treino salvo', 'Os treinos finalizados e os cardios registrados aparecem aqui.')}`;
+  }
+  const timeline = [
+    ...sessions.map(session => ({ date: session.date, html: renderSessionItem(session) })),
+    ...cardio.map(entry => ({ date: entry.date, html: renderCardioItem(entry) })),
+  ].sort((a, b) => b.date.localeCompare(a.date));
+  const subtitle = [`${sessions.length} treino(s)`, cardio.length ? `${cardio.length} cardio` : ''].filter(Boolean).join(' · ');
+  return `
+    <header class="top"><h1>Histórico</h1><p class="sub">${subtitle}</p></header>
+    <div class="list">${timeline.map(item => item.html).join('')}</div>`;
 }
 
 function renderSessionDetail(sessionId) {

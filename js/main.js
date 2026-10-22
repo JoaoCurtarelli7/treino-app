@@ -17,6 +17,7 @@ import { bodyWeightActions } from './views/body-weight.js';
 import { renderHistory, historyActions } from './views/history.js';
 import { renderSettings, settingsActions, syncOfflinePhotos } from './views/settings.js';
 import { planEditorActions } from './views/plan-editor.js';
+import { cardioActions } from './views/cardio.js';
 import { renderOnboarding, profileActions, handleProfileKeydown } from './views/profiles.js';
 import { activeProfile } from './core/profiles.js';
 
@@ -33,6 +34,7 @@ const actions = {
   ...historyActions,
   ...settingsActions,
   ...planEditorActions,
+  ...cardioActions,
   ...profileActions,
   ...planFieldActions,
   ...restActions,

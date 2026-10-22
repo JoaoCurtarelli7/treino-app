@@ -7,8 +7,10 @@ import { renderLineChart } from '../ui/chart.js';
 import { formatSets, formatDelta, emptyState } from '../ui/fragments.js';
 import { ui, navigate } from '../ui/state.js';
 import { renderBodyWeight } from './body-weight.js';
+import { renderCardioProgress } from './cardio.js';
 
-const MODES = [['exercises', 'Exercícios'], ['body', 'Peso corporal']];
+const MODES = [['exercises', 'Exercícios'], ['cardio', 'Cardio'], ['body', 'Peso']];
+const MODE_VIEWS = { exercises: () => renderExerciseList(), cardio: () => renderCardioProgress(), body: () => renderBodyWeight() };
 
 export function renderProgress() {
   if (ui.exerciseId) return renderExerciseDetail(ui.exerciseId);
@@ -17,7 +19,7 @@ export function renderProgress() {
     <div class="segmented">
       ${MODES.map(([id, label]) => `<button data-action="progress-mode" data-mode="${id}" class="${ui.progressMode === id ? 'on' : ''}">${label}</button>`).join('')}
     </div>
-    ${ui.progressMode === 'body' ? renderBodyWeight() : renderExerciseList()}`;
+    ${(MODE_VIEWS[ui.progressMode] ?? MODE_VIEWS.exercises)()}`;
 }
 
 function renderExerciseList() {
